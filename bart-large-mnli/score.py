@@ -1,33 +1,52 @@
 import json
 import sys
-from transformers import pipeline
+from transformers import BartTokenizer, BartForSequenceClassification
+import torch
+import time
 
-# Load zero-shot classification pipeline
-classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model_name = "facebook/bart-large-mnli"
+model = BartForSequenceClassification.from_pretrained(model_name).to(device)
+tokenizer = BartTokenizer.from_pretrained(model_name)
 
 def process_input():
-    for line in sys.stdin:
-        data = json.loads(line)
-        messages = data["messages"]  # List of messages
-        topics = data["topics"]      # List of topic labels
+    start_time = time.time()
 
-        results = []
-        for msg in messages:
-            classification = classifier(msg, topics, multi_label=True)
-            scores = classification["scores"]
-            labels = classification["labels"]
+    results = []
+    raw_data = "".join(sys.stdin.read())
+    data = json.loads(raw_data)
+    messages = data["messages"]
+    topics = data["topics"]
 
-            # Filter only topics with a probability >= 0.3
-            topic_probs = {labels[i]: scores[i] for i in range(len(labels)) if scores[i] >= 0.3}
+    for msg in messages:
+        topic_probs = {}
+        for topic in topics:
+            input_text = f"{msg} entails {topic}"
+            inputs = tokenizer(input_text, padding=True, truncation=True, return_tensors="pt").to(device)
+            with torch.no_grad():
+                logits = model(**inputs).logits
+            probs = torch.softmax(logits, dim=-1)
+            entailment_prob = probs[0][2].item()
+            topic_probs[topic] = entailment_prob
 
-            results.append({
-                "message": msg,
-                "topic_probs": topic_probs
-            })
+        sorted_topics = sorted(topic_probs.items(), key=lambda x: x[1], reverse=True)[:3]
+        top_topic_probs = {topic: round(prob, 2) for topic, prob in sorted_topics}
 
-        # Output structured JSON
-        print(json.dumps(results, indent=2))
-        sys.stdout.flush()
+        results.append({
+            "message": msg,
+            "topic_probs": top_topic_probs
+        })
+
+    total_time = time.time() - start_time
+    output = {
+        "results": results,
+        "total_time_seconds": round(total_time, 2),
+        "total_messages_processed": len(messages),
+        "total_topics_processed": len(topics)
+    }
+    print(json.dumps(output, indent=2))
+    sys.stdout.flush()
 
 if __name__ == "__main__":
     process_input()
