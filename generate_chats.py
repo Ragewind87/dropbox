@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 import random
 
-model_name = "facebook/blenderbot-400M-distill"  # Or "facebook/bart-large"
+model_name = "facebook/blenderbot-400M-distill"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
