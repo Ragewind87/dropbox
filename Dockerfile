@@ -1,13 +1,10 @@
 FROM python:3.8-slim
-
-# Install dependencies
 RUN pip install torch==2.0.1 transformers==4.36.2 accelerate==0.25.0
-
-# Copy script
+ARG HF_TOKEN
+ENV HF_TOKEN=$HF_TOKEN
+RUN python3 -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
+    AutoTokenizer.from_pretrained('mistralai/Mixtral-8x7B-v0.1', token='$HF_TOKEN'); \
+    AutoModelForCausalLM.from_pretrained('mistralai/Mixtral-8x7B-v0.1', torch_dtype=torch.float16, token='$HF_TOKEN')"
 COPY generate_chats_mixtral.py /app/generate_chats_mixtral.py
-
-# Set working dir
 WORKDIR /app
-
-# Run with unbuffered output
 CMD ["python3", "-u", "generate_chats_mixtral.py"]
