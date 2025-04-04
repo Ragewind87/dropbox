@@ -43,7 +43,7 @@ def generate_conversation(participants, topics, turns_per_topic=10, num_conversa
     return all_conversations
 
 conversations = generate_conversation(participants, topics, turns_per_topic=10, num_conversations=25)
-with open("/app/chat_data.txt", "w") as f:
+with open("/app/mixtral_chat_data.txt", "w") as f:
     for i, conv in enumerate(conversations):
         f.write(f"Conversation {i+1}:\n")
         f.write("\n".join(conv) + "\n\n")
